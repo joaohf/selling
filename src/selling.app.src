@@ -1,0 +1,13 @@
+{ application, 'selling'
+, [ {vsn, git}
+  , {description, "A Riemann.io core processing implementation"}
+  , {modules, []}
+  , { applications
+    , [ stdlib
+      , kernel
+      , clojerl
+      ]
+    }
+  , {mod, {'selling.app', []}}
+  ]
+}.

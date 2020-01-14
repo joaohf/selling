@@ -1,0 +1,24 @@
+(ns selling.common
+  "Utility functions. Time/date, some flow control constructs, protocol buffer
+  definitions and codecs, some vector set ops, etc."
+  (:use [selling.time :only [unix-time]]))
+
+(defn pkey
+  "Primary key for an event."
+  [event]
+  [(:host event) (:service event)])
+
+(defn expire
+  "An expired version of an event."
+  [event]
+  (into (select-keys event [:host :service])
+    [[:time (unix-time)] [:state "expired"]]))
+
+(defrecord Event [host service state description metric tags time ttl])
+
+(defn event
+  "Create a new event from a map."
+  [opts]
+  (let [t (int (erlang/round (or (opts :time)
+                           (unix-time))))]
+    (map->Event (merge opts {:time t}))))

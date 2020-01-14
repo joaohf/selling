@@ -1,0 +1,4 @@
+(ns selling.common-test
+  (:require [selling.common :refer :all]
+            [clojure.test :refer :all]))
+

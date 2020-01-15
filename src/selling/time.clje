@@ -1,5 +1,20 @@
 (ns selling.time
-  "Clocks and scheduled tasks. Provides functions for getting the current time.")
+  "Clocks and scheduled tasks. Provides functions for getting the current time
+  and running functions (Tasks) at specific times and periods. Includes a
+  threadpool for task execution, controlled by (start!) and (stop!)."
+  (:use [selling.logging :only [warn]]))
+
+(defprotocol Task
+  (succ [task]
+    "The successive task to this one.")
+  (run [task]
+    "Executes this task.")
+  (cancel [task]
+    "Cancel this task."))
+
+(defprotocol Deferrable
+  (defer [this new-time]
+    "Schedule a task for a new time."))
 
 (defn unix-time-real
   "The current unix epoch time in seconds, taken from
@@ -7,4 +22,104 @@
   []
   (/ (erlang/system_time :millisecond) 1000))
 
+(defn linear-time-real
+  "A current time on a linear scale with no fixed epoch; counts in seconds.
+  Unlike unix-time, which can pause, skip, or flow backwards, advances
+  consistently at (close) to wall clock time."
+  []
+  (erlang/monotonic_time :second))
+
 (def unix-time unix-time-real)
+(def linear-time linear-time-real)
+
+(defrecord Once [id f t cancelled]
+  Task
+  (succ [this] nil)
+  (run [this] (when-not @cancelled (f)))
+  (cancel [this]
+          (reset! cancelled true)))
+
+(defrecord Every [id f t interval deferred-t cancelled]
+  Task
+  (succ [this]
+        (when-not @cancelled
+          (let [next-time (or @deferred-t (+ t interval))]
+            (reset! deferred-t nil)
+            (assoc this :t next-time))))
+
+  (run [this]
+       (when-not (or @deferred-t @cancelled) (f)))
+
+  (cancel [this]
+          (reset! cancelled true))
+
+  Deferrable
+  (defer [this delay]
+              (reset! deferred-t delay)))
+
+(def max-task-id
+  (atom 0))
+
+(defn task-id
+  "Return a new task ID."
+  []
+  (swap! max-task-id inc))
+
+(defn next-tick
+  "Given a period dt, beginning at some point in time anchor, finds the next
+  tick after time now, such that the next tick is separate from anchor by an
+  exact multiple of dt. If now is omitted, defaults to (unix-time)."
+  ([anchor dt]
+   (next-tick anchor dt (unix-time)))
+  ([anchor dt now]
+   (+ now (- dt (mod (- now anchor) dt)))))
+
+; Look at all these bang! methods! Mutability is SO EXCITING!
+
+(defn schedule-sneaky!
+  "Schedules a task. Does *not* awaken any threads."
+  [task]
+  #erl[:periodic, task])
+
+(defn schedule!
+  "Schedule a task. May awaken a thread from the threadpool to investigate."
+  [task]
+  (sll_time/add task)
+  task)
+
+(defn once!
+  "Calls f at t seconds."
+  [t f]
+  (schedule! (Once. (task-id) f t (atom false))))
+
+(defn after!
+  "Calls f after delay seconds"
+  [delay f]
+  (once! delay f))
+
+(defn every!
+  "Calls f every interval seconds, after delay."
+  ([interval f]
+   (every! interval 0 f))
+  ([interval delay f]
+   (assert (not (neg? delay)))
+   (schedule! (Every. (task-id)
+                      f
+                      delay
+                      interval
+                      (atom nil)
+                      (atom false)))))
+
+(defn run-tasks!
+  "While running, takes tasks from the queue and executes them when ready. Will
+  park the current thread when no tasks are available."
+  [task]  
+    (try
+      (run task)
+      (catch _ e
+        (warn e "running task threw")))
+    (if-let [task' (succ task)]
+        ; Schedule the next task.
+        (schedule-sneaky! task')
+        :finish)
+      )

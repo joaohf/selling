@@ -1,0 +1,132 @@
+(ns selling.index
+  "Maintains a stateful index of events by [host, service] key. Can be queried
+  to return the most recent indexed events matching some expression. Can expire
+  events which have exceeded their TTL. Presently the only implementation of
+  the index protocol is backed by a nonblockinghashmap, but I plan to add an
+  HSQLDB backend as well.
+
+  Indexes must extend three protocols:
+
+  - Index: indexing and querying events
+  - Seqable: returning a list of events
+  - Service: lifecycle management"
+  (:refer-clojure :exclude [update])
+;  (:require 
+    ;[riemann.query :as query]
+    ;        [selling.common :refer [deprecated]]
+    ;        [riemann.instrumentation :refer [Instrumented]]
+    ;        [selling.logging :refer [error]]
+;    )
+  (:use [selling.time :only [unix-time]]
+        [selling.logging :only [error]]
+         ;riemann.service
+         )
+  )
+
+(defprotocol Index
+  (clear [this]
+    "Resets the index")
+  (delete [this event]
+    "Deletes any event zith this host & service from index. Returns the deleted
+    event, or nil.")
+  (delete-exactly [this event]
+    "Deletes event from index. Returns the deleted event, or nil.")
+  (expire [this]
+    "Return a seq of expired states from this index, removing each.")
+  (search [this query-ast]
+    "Returns a seq of events from the index matching this query AST")
+  (insert [this event]
+    "Updates index with event")
+  (lookup [this host service]
+    "Lookup an indexed event from the index"))
+
+; The index accepts states and maintains a table of the most recent state for
+; each unique [host, service]. It can be searched for states matching a query.
+
+(def default-ttl 60)
+
+(defn query-for-host-and-service
+  "Check if the AST is only searching for the host and service"
+  [query-ast]
+  (if (and (list? query-ast)
+           (= 'and (first query-ast)))
+    (let [and-exprs (rest query-ast)]
+      (if (and (= 2 (count and-exprs))
+               (every? list? and-exprs)
+               (= 2 (count (filter #(= (first %) '=) and-exprs))))
+        (let [host    (first (filter #(= (second %) :host) and-exprs))
+              service (first (filter #(= (second %) :service) and-exprs))]
+          (if (and host service)
+            [(last host) (last service)]))))))
+
+(deftype NbhmIndexReify [hm]
+  Index
+  (clear [this]
+    (sll_index/clear hm))
+
+  (delete [this event]
+    (sll_index/remove hm #erl((:host event) (:service event))))
+
+  (delete-exactly [this event]
+    (sll_index/remove hm #erl((:host event) (:service event)) event))
+
+  (expire [this]
+    (filter
+      (fn [event]
+        (let [age (- (unix-time) (:time event))
+            ttl (or (:ttl event) default-ttl)]
+        (when (< ttl age)
+          (delete-exactly this event)
+          true)))
+      (sll_index/values hm)))
+
+  (search [this query-ast]
+    "O(n) unless the query is for exactly a host and service"
+    (if-let [[host service] (query-for-host-and-service query-ast)]
+      (when-let [e (lookup this host service)]
+        (list e))
+      (let [matching (query/fun query-ast)]
+        (filter matching (sll_index/values hm)))))
+
+  (insert [this event]
+    (if (= "expired" (:state event))
+      (delete this event)
+      (sll_index/put hm (:host event) (:service event) event)))
+
+  (lookup [this host service]
+    (sll_index/get hm #erl(host service)))
+
+;      Instrumented
+;      (events [this]
+;        (let [base {:state "ok"
+;                    :time (unix-time)
+;                    :tags ["riemann"]}]
+;          (map (partial merge base)
+;               [{:service "riemann index size"
+;                 :metric (.size hm)}])))
+
+  clojerl.ISeqable
+  (seq [this]
+    (seq (sll_index/values hm)))
+
+;      ServiceEquiv
+;      (equiv? [this other] (= (class this) (class other)))
+
+;      Service
+;      (conflict? [this other] false)
+;      (reload! [this new-core])
+;      (start! [this])
+;      (stop! [this])))
+)
+
+(defn nbhm-index
+  "Create a new nonblockinghashmap backed index"
+  []
+  "ok"
+  (let [hm (sll_index/new)]
+   (NbhmIndexReify. hm)))
+
+(defn index
+  "Create a new index (currently: an nhbm index)"
+  []
+  (nbhm-index))

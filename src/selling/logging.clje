@@ -1,0 +1,13 @@
+(ns selling.logging)
+
+(defmacro warn
+  "Warn level logging using print-style args."
+  ;{:arglists '([message & more] [throwable message & more])}
+  [& args]
+  )
+
+(defmacro error
+  "Error level logging using print-style args."
+  ;{:arglists '([message & more] [throwable message & more])}
+  [& args]
+  )

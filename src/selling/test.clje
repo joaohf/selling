@@ -10,7 +10,8 @@
             [selling.index :as index]
 ;            [riemann.service :as service]
             [selling.streams :as streams]
-            [clojure.test :as test]))
+            [clojure.test :as test])
+  (:import [clojerl Error]))
 
 ; ugggggggh state is the worst
 ;  and yet necessary
@@ -57,13 +58,13 @@
   [name & children]
   (if *testing*
     (let [name (eval name)
-          file *file*
+          file "*file*"
           line (:line (meta &env))
           column (:column (meta &env))]
-      (locking *taps*
+      ;(locking *taps*
         ; Make sure no other tap conflicts
         (when-let [extant (contains? @*taps* name)]
-          (throw (RuntimeException.
+          (throw (Error
                    (str "Tap " name " (" file ":" line ")"
                         " already defined at "
                         (:file extant) ":" (:line extant)))))
@@ -74,7 +75,9 @@
                                   :column column})
 
         ; Return a stream
-        `(tap-stream ~name (streams/sdo ~@children))))
+        `(tap-stream ~name (streams/sdo ~@children))
+        ;)
+        )
 
     ; Fallback: compile directly to child streams
     `(streams/sdo ~@children)))
@@ -101,9 +104,9 @@
   (->> taps
        keys
        (reduce (fn [results tap-name]
-                 (assoc! results tap-name (atom [])))
-               (transient {}))
-       persistent!))
+                 (assoc results tap-name (atom [])))
+               ({}))
+       ))
 
 (defmacro with-test-env
   "Prepares a fresh set of taps, binds *testing* to true, initiates controlled
@@ -148,9 +151,9 @@
 
    (->> *results*
         (reduce (fn [results [tap-name results-atom]]
-                  (assoc! results tap-name @results-atom))
-                (transient {}))
-        persistent!)))
+                  (assoc results tap-name @results-atom))
+                ({}))
+        )))
 
 (defn lookup
   "Lookup an event by host/service in a vector of tapped events returned by

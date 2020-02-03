@@ -8,7 +8,7 @@ install:
   - chmod +x rebar3
   - export PATH=$PWD:$PATH
 script:
-  - ./rebar3 clojerl compile
-  - ./rebar3 clojerl test
+  - rebar3 clojerl compile
+  - rebar3 clojerl test
 notifications:
   email: false

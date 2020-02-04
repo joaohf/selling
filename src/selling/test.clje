@@ -127,8 +127,8 @@
   [& body]
   `(binding [*testing* true
              *taps*    (atom {})]
-     (time.controlled/with-controlled-time!
-       (time.controlled/reset-time!)
+     (selling.time.controlled/with-controlled-time!
+       (selling.time.controlled/reset-time!)
        ~@body)))
 
 (defn inject!
@@ -182,8 +182,8 @@
      (binding [*results* (fresh-results @*taps*)]
     (when (:index *core*)
       (index/clear (:index *core*)))
-    (time.controlled/with-controlled-time!
-      (time.controlled/reset-time!)
+    (selling.time.controlled/with-controlled-time!
+      (selling.time.controlled/reset-time!)
       (dorun (pmap #(riemann.service/reload! % *core*) (:services *core*)))
       (dorun (pmap service/start! (:services *core*)))
       ~@body
@@ -211,7 +211,7 @@
   [stream inputs]
   `(let [out# (atom [])
          stream# (~@stream (streams/append out#))]
-     (time.controlled/reset-time!)
+     (selling.time.controlled/reset-time!)
      (doseq [e# ~inputs]
        (when-let [t# (:time e#)]
          (time.controlled/advance! t#))
@@ -223,7 +223,7 @@
   to stream, returning outputs."
   [stream inputs-and-intervals]
   `(do
-     (time.controlled/reset-time!)
+     (selling.time.controlled/reset-time!)
      (let [out# (atom [])
            stream# (~@stream (streams/append out#))
            start-time# (ref (time/unix-time))
@@ -232,7 +232,7 @@
          (stream# e#)
          (when interval#
            (dosync (ref-set next-time# (+ (deref next-time#) interval#)))
-           (time.controlled/advance! (deref next-time#))))
+           (selling.time.controlled/advance! (deref next-time#))))
        (let [result# (deref out#)]
          ; close stream
          (stream# {:state "expired" :time (time/unix-time)})

@@ -89,8 +89,8 @@
           :ttl     (rand-int 500)
           :time    (- (unix-time) (rand-int 30))}
          event))
-(comment
-(deftest ^:bench indexing-nbhm-time
+
+#_(deftest ^:bench indexing-nbhm-time
   (let [_        (println "building events, this might take some time")
         not-much (doall (repeatedly 100 random-event))
         a-few    (doall (repeatedly 100000 random-event))
@@ -118,7 +118,7 @@
                   (i event)))))
     (println "expiring")
     (time (dotimes [iter 10] (doall (expire i))))))
-)
+
 (comment
 (deftest query-for-host-and-service-test
   (testing "not matching"

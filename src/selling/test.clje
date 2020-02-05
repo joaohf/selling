@@ -149,11 +149,13 @@
        (stream e)))
      ;; Return captured events
 
-   (->> *results*
-        (reduce (fn [results [tap-name results-atom]]
-                  (assoc results tap-name @results-atom))
-                ({}))
-        )))
+
+   ;(->> *results*
+   ;     (reduce (fn [results [tap-name results-atom]]
+   ;               (assoc results tap-name @results-atom))
+   ;             ({}))
+   ;     )
+        ))
 
 (defn lookup
   "Lookup an event by host/service in a vector of tapped events returned by

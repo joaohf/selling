@@ -29,8 +29,8 @@
   []
   (erlang/monotonic_time :second))
 
-(def unix-time unix-time-real)
-(def linear-time linear-time-real)
+(def ^:dynamic unix-time unix-time-real)
+(def ^:dynamic linear-time linear-time-real)
 
 (defrecord Once [id f t cancelled]
   Task

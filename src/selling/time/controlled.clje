@@ -57,7 +57,7 @@
   bindings take effect globally."
   [& body]
   ; Please forgive me
-  `(with-redefs [selling.time/unix-time unix-time-controlled
+  `(binding [selling.time/unix-time unix-time-controlled
                  selling.time/linear-time linear-time-controlled]
      ~@body))
 

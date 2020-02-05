@@ -20,10 +20,9 @@
                        (tap :foo nil))))
               (catch t e
                 e))]
-              (prn "oi" err)
     (is (re-find #"Tap :foo \(.+?:\) already defined at :" err))))
 
-#_(deftest tap-captures-events
+(deftest tap-captures-events
   (with-test-env
     (bound
       (eval
@@ -44,7 +43,7 @@
                                 {:cask [{:time 5 :metric 2}]}))
                          (is (= @downstream {:time 5 :metric 2}))))))))))
 
-#_(deftest io-suppression
+(deftest io-suppression
   (with-test-env
     (bound
       (eval

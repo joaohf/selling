@@ -11,3 +11,8 @@
   ;{:arglists '([message & more] [throwable message & more])}
   [& args]
   )
+
+(defmacro suppress
+  "Turns off logging for the evaluation of body."
+  [loggers & body]
+  `(do ~@body))

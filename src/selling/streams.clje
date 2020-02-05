@@ -236,8 +236,8 @@
       (fn stream [event]
         (let [[first-time value] (if @first-time
                                      (do
-                                       (swap! first-time false)
-                                       (swap! acc event)
+                                       (reset! first-time false)
+                                       (reset! acc event)
                                        [true nil])
                                      [false (swap! acc f event)])]
           (when-not first-time

@@ -233,7 +233,8 @@
        (doseq [[e# interval#] (partition-all 2 ~inputs-and-intervals)]
          (stream# e#)
          (when interval#
-           (swap! next-time# (+ (deref next-time#) interval#))
+           ;(swap! next-time# (+ (deref next-time#) interval#))
+           (swap! next-time# + interval#)
            (selling.time.controlled/advance! (deref next-time#))))
        (let [result# (deref out#)]
          ; close stream
